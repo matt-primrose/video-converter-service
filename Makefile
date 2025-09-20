@@ -1,4 +1,4 @@
-.PHONY: build up down logs clean test-videos help
+.PHONY: build up down logs clean test-videos check-ffmpeg help
 
 # Default target
 help:
@@ -13,6 +13,7 @@ help:
 	@echo "  logs          - Follow service logs"
 	@echo "  clean         - Remove all containers, networks, and volumes"
 	@echo "  test-videos   - Create test video directory structure"
+	@echo "  check-ffmpeg  - Check ffmpeg capabilities in container"
 	@echo ""
 	@echo "Service URLs (when running):"
 	@echo "  Video Converter API:  http://localhost:8080"
