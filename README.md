@@ -15,9 +15,9 @@ A containerized Go service that converts videos using ffmpeg, designed for cloud
 
 ### Prerequisites
 
-- Go 1.21+
-- ffmpeg installed
-- Docker (optional, for containerized deployment)
+- Go 1.24+
+- ffmpeg installed (for local testing)
+- Docker (for containerized deployment)
 
 ### Local Development
 
@@ -204,18 +204,38 @@ make dev            # Quick development cycle (build + up + logs)
 
 ### Project Structure
 ```
-├── cmd/video-converter/     # Main application entry point
-├── internal/               # Private application packages
-│   ├── config/            # Configuration loading and validation
-│   ├── events/            # Event routing (Event Grid, WebSocket)
-│   ├── worker/            # Job processing and worker pool
-│   ├── storage/           # Storage abstraction layer
-│   └── transcoder/        # ffmpeg integration
-├── pkg/                   # Public packages
-│   └── models/            # Shared data models
-├── config.yaml.example    # Example configuration
-├── Dockerfile             # Container definition
-└── REQUIREMENTS.md        # Detailed requirements
+video-converter-service/
+├── cmd/
+│   └── video-converter/        # Main application entry point
+│       └── main.go            # Entry point and service initialization
+├── internal/                  # Private application packages
+│   ├── config/                # Configuration loading and validation
+│   │   └── config.go          # Config structs and loading logic
+│   ├── events/                # Event routing (Event Grid, WebSocket)
+│   │   └── router.go          # Azure Event Grid and WebSocket routing
+│   ├── worker/                # Job processing and worker pool
+│   │   └── worker.go          # Worker pool and job execution
+│   ├── storage/               # Storage abstraction layer (placeholder)
+│   └── transcoder/            # ffmpeg integration (placeholder)
+├── pkg/                       # Public packages
+│   └── models/                # Shared data models
+│       └── models.go          # Job, event, and result types
+├── monitoring/                # Observability configuration
+│   ├── grafana/               # Grafana dashboards and config
+│   └── prometheus.yml         # Prometheus scraping configuration
+├── bin/                       # Compiled binaries (generated)
+├── test-videos/               # Sample test files
+├── config.yaml.example        # Example configuration
+├── config.yaml               # Local configuration (gitignored)
+├── docker-compose.yml         # Production container setup
+├── docker-compose.dev.yml     # Development environment with monitoring
+├── Dockerfile                 # Multi-stage container build
+├── Makefile                   # Development and build commands
+├── go.mod                     # Go module definition
+├── go.sum                     # Go module checksums
+├── .gitignore                 # Git ignore rules
+├── REQUIREMENTS.md            # Detailed project requirements
+└── README.md                  # This file
 ```
 
 ### Next Steps
