@@ -1,0 +1,21 @@
+# Development override for docker-compose
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+version: '3.8'
+
+services:
+  video-converter:
+    # Use local config file if it exists
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+      - ./test-videos:/app/test-videos:ro
+      - ./outputs:/app/outputs # Direct mount for easy access
+    environment:
+      # More verbose logging for development
+      - OBSERVABILITY_LOG_LEVEL=debug
+      # Shorter timeout for faster testing
+      - PROCESSING_JOB_TIMEOUT_MINUTES=10
+    # Override restart policy for development
+    restart: "no"
+  # Development-specific services can be added here
+  # For example, a local file server for testing video uploads

@@ -1,0 +1,139 @@
+version: '3.8'
+
+services:
+  video-converter:
+    build: .
+    ports:
+      - "8080:8080" # Main API port
+      - "8081:8081" # Health check port
+      - "9090:9090" # Metrics port
+    environment:
+      # Server configuration
+      - SERVER_PORT=8080
+      - SERVER_HOST=0.0.0.0
+      - SERVER_HEALTH_CHECK_PORT=8081
+
+      # Storage configuration (local for development)
+      - STORAGE_TYPE=local
+      - STORAGE_LOCAL_PATH=/app/outputs
+
+      # Processing configuration
+      - PROCESSING_MAX_CONCURRENT_JOBS=2
+      - PROCESSING_JOB_TIMEOUT_MINUTES=30
+      - PROCESSING_TEMP_DIR=/tmp/video-converter
+      - PROCESSING_MAX_TEMP_DISK_GB=5
+
+      # FFmpeg configuration
+      - FFMPEG_BINARY_PATH=ffmpeg
+      - FFMPEG_DEFAULT_PRESET=fast
+      - FFMPEG_HARDWARE_ACCEL=
+
+      # Observability configuration
+      - OBSERVABILITY_LOG_LEVEL=debug
+      - OBSERVABILITY_METRICS_PORT=9090
+      - OBSERVABILITY_ENABLE_TRACING=false
+      - OBSERVABILITY_JAEGER_ENDPOINT=
+
+      # Job templates - basic default template
+      - JOB_TEMPLATES={"default":{"outputs":[{"name":"hls-adaptive","package":"hls","profiles":[{"name":"240p","width":426,"height":240,"video_bitrate_kbps":350,"audio_bitrate_kbps":64},{"name":"720p","width":1280,"height":720,"video_bitrate_kbps":2500,"audio_bitrate_kbps":128}],"segment_length_s":6,"container":"fmp4","destination":"vod/{videoId}/hls/"},{"name":"progressive-fallback","package":"progressive","profile":"720p","destination":"vod/{videoId}/progressive/720p.mp4"}],"ffmpeg":{"preset":"fast","hwaccel":"","extra_args":["-movflags","+faststart"]},"notifications":{"webhook_url":"","on_complete":true,"on_failure":true}}}
+    volumes:
+      # Persistent storage for outputs
+      - video_outputs:/app/outputs
+      # Temporary processing directory
+      - video_temp:/tmp/video-converter
+      # Mount source videos for testing (optional)
+      - ./test-videos:/app/test-videos:ro
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8081/healthz" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - video-converter-network
+
+  # Optional: Prometheus for metrics collection
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9091:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - video-converter-network
+    profiles:
+      - monitoring
+
+  # Optional: Grafana for metrics visualization
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+    networks:
+      - video-converter-network
+    profiles:
+      - monitoring
+
+  # Optional: Jaeger for distributed tracing
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    ports:
+      - "16686:16686" # Jaeger UI
+      - "14268:14268" # HTTP collector
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    volumes:
+      - jaeger_data:/badger
+    networks:
+      - video-converter-network
+    profiles:
+      - tracing
+
+  # Optional: MinIO for S3-compatible storage testing
+  minio:
+    image: minio/minio:latest
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin123
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    networks:
+      - video-converter-network
+    profiles:
+      - s3-storage
+
+volumes:
+  video_outputs:
+    driver: local
+  video_temp:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+  jaeger_data:
+    driver: local
+  minio_data:
+    driver: local
+
+networks:
+  video-converter-network:
+    driver: bridge

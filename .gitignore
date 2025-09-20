@@ -30,3 +30,19 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+
+# Video converter service specific
+config.yaml
+temp/
+tmp/
+*.tmp
+outputs/
+*.log
+logs/
+bin/video-converter
+test-videos/
+
+# Docker volumes and data
+monitoring/data/
+grafana_data/
+prometheus_data/

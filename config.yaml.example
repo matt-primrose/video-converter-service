@@ -1,0 +1,97 @@
+# Example configuration for local development
+server:
+  port: 8080
+  host: "0.0.0.0"
+  health_check_port: 8081
+
+event_sources:
+  azure_eventgrid:
+    endpoint: ""  # Set via environment variable in production
+    key: ""       # Set via environment variable in production
+  websocket:
+    endpoint: "ws://localhost:8080/events"
+    token: "dev-token"
+
+storage:
+  type: "local"
+  local:
+    path: "./outputs"
+  azure_blob:
+    account: ""
+    container: "video-outputs"
+  s3:
+    bucket: ""
+    region: "us-east-1"
+
+processing:
+  max_concurrent_jobs: 2
+  job_timeout_minutes: 30
+  temp_dir: "./temp"
+  max_temp_disk_gb: 5
+
+ffmpeg:
+  binary_path: "ffmpeg"
+  default_preset: "fast"
+  hardware_accel: ""
+
+observability:
+  log_level: "debug"
+  metrics_port: 9090
+  enable_tracing: false
+  jaeger_endpoint: ""
+
+# Job Templates - Define conversion profiles
+job_templates:
+  default:
+    outputs:
+      - name: "hls-adaptive"
+        package: "hls"
+        profiles:
+          - name: "240p"
+            width: 426
+            height: 240
+            video_bitrate_kbps: 350
+            audio_bitrate_kbps: 64
+          - name: "360p" 
+            width: 640
+            height: 360
+            video_bitrate_kbps: 700
+            audio_bitrate_kbps: 96
+          - name: "720p"
+            width: 1280
+            height: 720
+            video_bitrate_kbps: 2500
+            audio_bitrate_kbps: 128
+          - name: "1080p"
+            width: 1920
+            height: 1080
+            video_bitrate_kbps: 4000
+            audio_bitrate_kbps: 128
+          - name: "4k"
+            width: 3840
+            height: 2160
+            video_bitrate_kbps: 8000
+            audio_bitrate_kbps: 128
+        segment_length_s: 6
+        container: "fmp4"
+        destination: "vod/{videoId}/hls/"
+
+      - name: "progressive-fallback"
+        package: "progressive"
+        profile: "720p"
+        destination: "vod/{videoId}/progressive/720p.mp4"
+
+      - name: "progressive-hd"
+        package: "progressive"
+        profile: "1080p" 
+        destination: "vod/{videoId}/progressive/1080p.mp4"
+
+    ffmpeg:
+      preset: "fast"
+      hwaccel: ""
+      extra_args: ["-movflags", "+faststart"]
+
+    notifications:
+      webhook_url: ""
+      on_complete: true
+      on_failure: true
