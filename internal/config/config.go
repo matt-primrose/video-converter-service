@@ -72,6 +72,7 @@ type ProcessingConfig struct {
 
 type FFmpegConfig struct {
 	BinaryPath    string `yaml:"binary_path" json:"binary_path"`
+	ProbePath     string `yaml:"probe_path" json:"probe_path"`
 	DefaultPreset string `yaml:"default_preset" json:"default_preset"`
 	HardwareAccel string `yaml:"hardware_accel" json:"hardware_accel"`
 }
@@ -133,12 +134,13 @@ func Load() (*Config, error) {
 		},
 		Processing: ProcessingConfig{
 			MaxConcurrentJobs: 2,
-			JobTimeoutMinutes: 30,
+			JobTimeoutMinutes: 60, // Increased default for longer video processing
 			TempDir:           "/tmp/video-converter",
 			MaxTempDiskGB:     10,
 		},
 		FFmpeg: FFmpegConfig{
 			BinaryPath:    "ffmpeg",
+			ProbePath:     "ffprobe",
 			DefaultPreset: "fast",
 		},
 		Observability: ObservabilityConfig{
@@ -244,6 +246,9 @@ func loadFromEnv(cfg *Config) {
 	// FFmpeg config
 	if val := os.Getenv("FFMPEG_BINARY_PATH"); val != "" {
 		cfg.FFmpeg.BinaryPath = val
+	}
+	if val := os.Getenv("FFMPEG_PROBE_PATH"); val != "" {
+		cfg.FFmpeg.ProbePath = val
 	}
 	if val := os.Getenv("FFMPEG_DEFAULT_PRESET"); val != "" {
 		cfg.FFmpeg.DefaultPreset = val

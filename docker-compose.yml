@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   video-converter:
     build: .
@@ -19,12 +17,13 @@ services:
 
       # Processing configuration
       - PROCESSING_MAX_CONCURRENT_JOBS=2
-      - PROCESSING_JOB_TIMEOUT_MINUTES=30
+      - PROCESSING_JOB_TIMEOUT_MINUTES=60
       - PROCESSING_TEMP_DIR=/tmp/video-converter
       - PROCESSING_MAX_TEMP_DISK_GB=5
 
       # FFmpeg configuration
       - FFMPEG_BINARY_PATH=ffmpeg
+      - FFMPEG_PROBE_PATH=ffprobe
       - FFMPEG_DEFAULT_PRESET=fast
       - FFMPEG_HARDWARE_ACCEL=
 
@@ -35,7 +34,7 @@ services:
       - OBSERVABILITY_JAEGER_ENDPOINT=
 
       # Job templates - basic default template
-      - JOB_TEMPLATES={"default":{"outputs":[{"name":"hls-adaptive","package":"hls","profiles":[{"name":"240p","width":426,"height":240,"video_bitrate_kbps":350,"audio_bitrate_kbps":64},{"name":"720p","width":1280,"height":720,"video_bitrate_kbps":2500,"audio_bitrate_kbps":128}],"segment_length_s":6,"container":"fmp4","destination":"vod/{videoId}/hls/"},{"name":"progressive-fallback","package":"progressive","profile":"720p","destination":"vod/{videoId}/progressive/720p.mp4"}],"ffmpeg":{"preset":"fast","hwaccel":"","extra_args":["-movflags","+faststart"]},"notifications":{"webhook_url":"","on_complete":true,"on_failure":true}}}
+      - JOB_TEMPLATES={"default":{"outputs":[{"name":"hls-adaptive","package":"hls","profiles":[{"name":"240p","width":426,"height":240,"video_bitrate_kbps":350,"audio_bitrate_kbps":64},{"name":"720p","width":1280,"height":720,"video_bitrate_kbps":2500,"audio_bitrate_kbps":128}],"segment_length_s":6,"container":"fmp4","destination":"vod/{videoId}/hls/"},{"name":"progressive-fallback","package":"progressive","profile":"720p","destination":"vod/{videoId}/progressive/720p.mp4"}],"ffmpeg":{"preset":"fast","hwaccel":"","extra_args":[]},"notifications":{"webhook_url":"","on_complete":true,"on_failure":true}}}
     volumes:
       # Persistent storage for outputs
       - video_outputs:/app/outputs

@@ -22,7 +22,8 @@ RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o video-converter .
 # Final stage - minimal runtime image with ffmpeg
 FROM alpine:3.22
 
-# Use package manager (current approach - recommended)
+# Install FFmpeg (includes both ffmpeg and ffprobe executables in PATH)
+# Production deployment uses default config: binary_path="ffmpeg", probe_path="ffprobe"
 RUN apk add --no-cache \
     ffmpeg \
     ca-certificates \

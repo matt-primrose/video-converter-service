@@ -1,4 +1,18 @@
-# Example configuration for local development
+# Example configuration for video converter service
+# Copy this file to config.yaml and customize for your deployment
+#
+# For local development:
+# 1. Copy this file: cp config.yaml.example config.yaml
+# 2. Update FFmpeg paths to point to local binaries (e.g., "./bin/ffmpeg.exe" on Windows)
+# 3. Set appropriate storage type and paths
+# 4. Replace placeholder tokens/secrets with actual values
+#
+# For production deployment:
+# 1. Set sensitive values via environment variables (Azure EventGrid, webhook URLs, storage credentials)
+# 2. Configure appropriate storage backend (Azure Blob, S3, etc.)
+# 3. Adjust processing limits based on your infrastructure
+# 4. Set log_level to "info" or "warn" for production
+
 server:
   port: 8080
   host: "0.0.0.0"
@@ -6,41 +20,46 @@ server:
 
 event_sources:
   azure_eventgrid:
-    endpoint: ""  # Set via environment variable in production
-    key: ""       # Set via environment variable in production
+    endpoint: ""  # Set via environment variable in production: AZURE_EVENTGRID_ENDPOINT
+    key: ""       # Set via environment variable in production: AZURE_EVENTGRID_KEY
   websocket:
     endpoint: "ws://localhost:8080/events"
-    token: "dev-token"
+    token: "your-websocket-token-here"  # Replace with your actual token in production
 
 storage:
-  type: "local"
+  type: "local"  # Options: "local", "azure_blob", "s3"
   local:
     path: "./outputs"
   azure_blob:
-    account: ""
+    account: "your-storage-account"  # Replace with your Azure storage account name
     container: "video-outputs"
   s3:
-    bucket: ""
+    bucket: "your-s3-bucket"  # Replace with your S3 bucket name
     region: "us-east-1"
 
 processing:
   max_concurrent_jobs: 2
-  job_timeout_minutes: 30
+  job_timeout_minutes: 60  # Increased for longer video processing - adjust based on your needs
   temp_dir: "./temp"
   max_temp_disk_gb: 5
 
 ffmpeg:
-  binary_path: "ffmpeg"
-  default_preset: "fast"
-  hardware_accel: ""
+  binary_path: "ffmpeg"      # Path to FFmpeg binary (use "./bin/ffmpeg.exe" for Windows local dev)
+  probe_path: "ffprobe"      # Path to FFprobe binary (use "./bin/ffprobe.exe" for Windows local dev)
+  default_preset: "fast"     # FFmpeg preset: ultrafast, superfast, veryfast, faster, fast, medium, slow, slower, veryslow
+  hardware_accel: ""         # Hardware acceleration: "", "nvenc", "qsv", "vaapi" (leave empty for software encoding)
 
 observability:
-  log_level: "debug"
+  log_level: "info"          # Log level: debug, info, warn, error (use "debug" for development)
   metrics_port: 9090
   enable_tracing: false
-  jaeger_endpoint: ""
+  jaeger_endpoint: ""        # Set to your Jaeger endpoint if tracing is enabled
 
 # Job Templates - Define conversion profiles
+# The "default" template creates:
+# - HLS adaptive bitrate streaming with 5 quality levels (240p to 4k)
+# - Progressive MP4 fallback files (720p and 1080p)
+# You can customize profiles, bitrates, and output formats as needed
 job_templates:
   default:
     outputs:
@@ -88,10 +107,10 @@ job_templates:
 
     ffmpeg:
       preset: "fast"
-      hwaccel: ""
-      extra_args: ["-movflags", "+faststart"]
+      hwaccel: ""              # Leave empty for software encoding, or use "nvenc", "qsv", "vaapi" for hardware
+      extra_args: []           # Additional FFmpeg arguments (movflags +faststart is handled automatically)
 
     notifications:
-      webhook_url: ""
+      webhook_url: "https://your-webhook-endpoint.com/video-complete"  # Replace with your webhook URL
       on_complete: true
       on_failure: true

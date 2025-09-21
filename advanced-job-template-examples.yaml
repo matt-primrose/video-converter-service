@@ -1,0 +1,255 @@
+# Advanced Job Template Examples for Video Converter Service
+#
+# This file contains various job template configurations demonstrating different
+# transcoding workflows and output formats. Copy any of these templates into your
+# main config.yaml under the job_templates section.
+#
+# Usage:
+# 1. Copy the desired template(s) to your config.yaml file under job_templates
+# 2. Customize profiles, bitrates, and settings for your specific needs
+# 3. Reference the template name when submitting conversion jobs
+#
+# Template Categories:
+# - Web Delivery: HLS and Progressive formats optimized for web streaming
+# - Social Media: Specialized formats for different social platforms
+# - Archive/Broadcast: High-quality formats for long-term storage
+# - Live Streaming: Low-latency optimized configurations
+# - Ultra HD/4K: High-resolution video processing
+
+# Job Templates - Advanced Examples
+job_templates:
+
+  # Adaptive bitrate HLS streaming for web delivery
+  # Includes 5 quality levels from 240p to 1080p with optimized settings
+  web_hls:
+    outputs:
+      - name: "hls_adaptive"
+        package: "hls"
+        segment_length_s: 6
+        profiles:
+          - name: "240p"
+            width: 426
+            height: 240
+            video_bitrate_kbps: 400
+            audio_bitrate_kbps: 64
+          - name: "360p"
+            width: 640
+            height: 360
+            video_bitrate_kbps: 800
+            audio_bitrate_kbps: 96
+          - name: "480p"
+            width: 854
+            height: 480
+            video_bitrate_kbps: 1200
+            audio_bitrate_kbps: 128
+          - name: "720p"
+            width: 1280
+            height: 720
+            video_bitrate_kbps: 2500
+            audio_bitrate_kbps: 128
+          - name: "1080p"
+            width: 1920
+            height: 1080
+            video_bitrate_kbps: 5000
+            audio_bitrate_kbps: 192
+    ffmpeg:
+      preset: "medium"
+      hwaccel: ""
+      extra_args: ["-g", "60", "-keyint_min", "60", "-sc_threshold", "0"]
+    notifications:
+      webhook_url: "https://api.example.com/webhooks/conversion-complete"
+      on_complete: true
+      on_failure: true
+
+  # Progressive download MP4 files for direct playback
+  # Creates multiple quality versions for different devices
+  web_progressive:
+    outputs:
+      - name: "mp4_multibitrate"
+        package: "progressive"
+        container: "mp4"
+        profiles:
+          - name: "mobile"
+            width: 854
+            height: 480
+            video_bitrate_kbps: 1000
+            audio_bitrate_kbps: 128
+          - name: "desktop"
+            width: 1920
+            height: 1080
+            video_bitrate_kbps: 4000
+            audio_bitrate_kbps: 192
+    ffmpeg:
+      preset: "fast"
+      hwaccel: ""
+      extra_args: ["-profile:v", "high", "-level", "4.0"]
+    notifications:
+      webhook_url: "https://api.example.com/webhooks/conversion-complete"
+      on_complete: true
+      on_failure: true
+
+  # High-quality archive format using constant rate factor (CRF)
+  # Optimized for long-term storage with excellent quality retention
+  archive_quality:
+    outputs:
+      - name: "archive_master"
+        package: "progressive"
+        container: "mp4"
+        profile: "1080p"  # Single profile using predefined settings
+    ffmpeg:
+      preset: "slow"      # Higher quality, slower encoding
+      hwaccel: ""
+      extra_args: ["-crf", "18", "-profile:v", "high", "-level", "4.2"]
+    notifications:
+      webhook_url: ""
+      on_complete: false
+      on_failure: true
+
+  # Social media optimized formats
+  # Creates vertical (Instagram Stories) and square (Twitter/Instagram) formats
+  social_media_formats:
+    outputs:
+      - name: "instagram_story"
+        package: "progressive"
+        container: "mp4"
+        profiles:
+          - name: "vertical_hd"
+            width: 1080
+            height: 1920  # 9:16 aspect ratio for Stories
+            video_bitrate_kbps: 3000
+            audio_bitrate_kbps: 128
+      - name: "square_social"
+        package: "progressive"
+        container: "mp4"
+        profiles:
+          - name: "square_hd"
+            width: 1080
+            height: 1080  # 1:1 aspect ratio for feeds
+            video_bitrate_kbps: 2000
+            audio_bitrate_kbps: 128
+    ffmpeg:
+      preset: "fast"
+      hwaccel: ""
+      extra_args: ["-vf", "pad=1080:1080:(ow-iw)/2:(oh-ih)/2:black"]
+    notifications:
+      webhook_url: "https://api.example.com/webhooks/social-conversion"
+      on_complete: true
+      on_failure: true
+
+  # Ultra HD/4K processing with hardware acceleration
+  # Optimized for high-resolution content with multiple quality tiers
+  uhd_4k_processing:
+    outputs:
+      - name: "4k_hls_adaptive"
+        package: "hls"
+        segment_length_s: 6
+        profiles:
+          - name: "1080p"
+            width: 1920
+            height: 1080
+            video_bitrate_kbps: 5000
+            audio_bitrate_kbps: 192
+          - name: "1440p"  # 2K/QHD
+            width: 2560
+            height: 1440
+            video_bitrate_kbps: 9000
+            audio_bitrate_kbps: 192
+          - name: "4k"     # Ultra HD
+            width: 3840
+            height: 2160
+            video_bitrate_kbps: 18000
+            audio_bitrate_kbps: 256
+    ffmpeg:
+      preset: "slow"      # Higher quality for UHD content
+      hwaccel: "nvenc"    # Hardware acceleration recommended for 4K
+      extra_args: ["-g", "120", "-keyint_min", "120", "-rc:v", "vbr", "-cq:v", "19"]
+    notifications:
+      webhook_url: "https://api.example.com/webhooks/uhd-conversion"
+      on_complete: true
+      on_failure: true
+
+  # Live streaming preparation with low-latency optimization
+  # Creates stream-ready formats with shorter segments and fast encoding
+  live_streaming_prep:
+    outputs:
+      - name: "rtmp_ready_hls"
+        package: "hls"
+        segment_length_s: 2  # Shorter segments for reduced latency
+        profiles:
+          - name: "source_quality"
+            width: 1920
+            height: 1080
+            video_bitrate_kbps: 6000
+            audio_bitrate_kbps: 192
+          - name: "backup_stream"
+            width: 1280
+            height: 720
+            video_bitrate_kbps: 3000
+            audio_bitrate_kbps: 128
+    ffmpeg:
+      preset: "ultrafast"  # Speed prioritized over quality for live use
+      hwaccel: ""
+      extra_args: ["-tune", "zerolatency", "-g", "30"]
+    notifications:
+      webhook_url: "https://streaming.example.com/webhooks/prep-complete"
+      on_complete: true
+      on_failure: true
+
+  # Broadcast quality with multiple standard formats
+  # Professional broadcast formats with strict compliance
+  broadcast_standards:
+    outputs:
+      - name: "broadcast_hd"
+        package: "progressive"
+        container: "mp4"
+        profiles:
+          - name: "broadcast_720p50"  # 720p50 for broadcast
+            width: 1280
+            height: 720
+            video_bitrate_kbps: 8000
+            audio_bitrate_kbps: 256
+          - name: "broadcast_1080i25" # 1080i25 for broadcast
+            width: 1920
+            height: 1080
+            video_bitrate_kbps: 12000
+            audio_bitrate_kbps: 256
+    ffmpeg:
+      preset: "medium"
+      hwaccel: ""
+      extra_args: ["-profile:v", "high", "-level", "4.0", "-pix_fmt", "yuv420p"]
+    notifications:
+      webhook_url: "https://broadcast.example.com/webhooks/master-ready"
+      on_complete: true
+      on_failure: true
+
+  # Mobile-first optimization
+  # Lightweight formats optimized for mobile devices and data usage
+  mobile_optimized:
+    outputs:
+      - name: "mobile_hls"
+        package: "hls"
+        segment_length_s: 6
+        profiles:
+          - name: "mobile_low"    # Data-saver mode
+            width: 480
+            height: 270
+            video_bitrate_kbps: 300
+            audio_bitrate_kbps: 64
+          - name: "mobile_med"    # Standard mobile
+            width: 720
+            height: 405
+            video_bitrate_kbps: 700
+            audio_bitrate_kbps: 96
+          - name: "mobile_high"   # High-quality mobile
+            width: 1280
+            height: 720
+            video_bitrate_kbps: 1500
+            audio_bitrate_kbps: 128
+    ffmpeg:
+      preset: "fast"
+      hwaccel: ""
+      extra_args: ["-profile:v", "main", "-level", "3.1", "-movflags", "+faststart"]
+    notifications:
+      webhook_url: "https://mobile.example.com/webhooks/encode-complete"
+      on_complete: true
+      on_failure: true

@@ -4,32 +4,44 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
 	"github.com/matt-primrose/video-converter-service/internal/config"
+	"github.com/matt-primrose/video-converter-service/internal/transcoder"
 	"github.com/matt-primrose/video-converter-service/pkg/models"
 )
 
 // Worker manages the conversion job processing
 type Worker struct {
-	config   *config.Config
-	jobQueue chan *models.ConversionJob
-	wg       sync.WaitGroup
-	ctx      context.Context
-	cancel   context.CancelFunc
+	config     *config.Config
+	transcoder *transcoder.Transcoder
+	jobQueue   chan *models.ConversionJob
+	wg         sync.WaitGroup
+	ctx        context.Context
+	cancel     context.CancelFunc
 }
 
 // New creates a new worker instance
-func New(cfg *config.Config) *Worker {
+func New(cfg *config.Config) (*Worker, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	return &Worker{
-		config:   cfg,
-		jobQueue: make(chan *models.ConversionJob, cfg.Processing.MaxConcurrentJobs*2), // Buffer for queuing
-		ctx:      ctx,
-		cancel:   cancel,
+	// Initialize basic transcoder
+	tc, err := transcoder.NewTranscoder(cfg)
+	if err != nil {
+		cancel()
+		return nil, fmt.Errorf("failed to initialize transcoder: %w", err)
 	}
+
+	return &Worker{
+		config:     cfg,
+		transcoder: tc,
+		jobQueue:   make(chan *models.ConversionJob, cfg.Processing.MaxConcurrentJobs*2), // Buffer for queuing
+		ctx:        ctx,
+		cancel:     cancel,
+	}, nil
 }
 
 // Start starts the worker pool
@@ -161,23 +173,58 @@ func (w *Worker) executeConversion(ctx context.Context, job *models.ConversionJo
 		"outputCount", len(template.Outputs),
 	)
 
-	// TODO: Implement the actual conversion logic:
-	// 1. Download source file from job.Source.URI
-	// 2. Validate source file
-	// 3. For each output in template.Outputs:
-	//    - Generate ffmpeg command based on profiles
-	//    - Execute ffmpeg conversion
-	//    - Upload output files to storage
-	// 4. Send notifications if configured
-	// 5. Clean up temporary files
-
-	// For now, simulate processing time
-	select {
-	case <-ctx.Done():
-		return fmt.Errorf("conversion cancelled due to timeout")
-	case <-time.After(time.Second * 2): // Simulate work
-		slog.Info("Conversion simulation completed", "jobId", job.JobID)
+	// Step 1: Download source file from job.Source.URI
+	inputPath, err := w.downloadSourceFile(ctx, job)
+	if err != nil {
+		return fmt.Errorf("failed to download source file: %w", err)
 	}
+	// Note: File cleanup is handled after upload by cleaning the entire job temp directory
+
+	// Step 2: Validate source file (basic validation)
+	if err := w.validateSourceFile(inputPath); err != nil {
+		return fmt.Errorf("source file validation failed: %w", err)
+	}
+
+	// Step 3: Progress callback to update job status
+	progressCallback := func(progress float64, currentFrame, totalFrames int, speed float64) {
+		job.Status.Progress = progress
+		slog.Debug("Conversion progress",
+			"jobId", job.JobID,
+			"progress", fmt.Sprintf("%.2f%%", progress*100),
+			"frame", currentFrame,
+			"totalFrames", totalFrames,
+			"speed", fmt.Sprintf("%.2fx", speed),
+		)
+	}
+
+	// Step 4: Perform transcoding
+	result, err := w.transcoder.Transcode(ctx, job, template, inputPath, progressCallback)
+	if err != nil {
+		return fmt.Errorf("transcoding failed: %w", err)
+	}
+
+	// Step 5: Upload output files to storage (placeholder)
+	if err := w.uploadOutputFiles(ctx, job, result); err != nil {
+		return fmt.Errorf("failed to upload output files: %w", err)
+	}
+
+	// Step 5.5: Cleanup job temp directory after successful upload
+	jobTempDir := filepath.Join(w.config.Processing.TempDir, job.JobID)
+	if err := os.RemoveAll(jobTempDir); err != nil {
+		slog.Warn("Failed to clean up job temp directory", "jobId", job.JobID, "path", jobTempDir, "error", err)
+	}
+
+	// Step 6: Send notifications if configured
+	if err := w.sendNotifications(ctx, job, template, result); err != nil {
+		slog.Warn("Failed to send notifications", "jobId", job.JobID, "error", err)
+		// Don't fail the job for notification errors
+	}
+
+	slog.Info("Conversion execution completed",
+		"jobId", job.JobID,
+		"duration", result.Duration,
+		"outputCount", len(result.Outputs),
+	)
 
 	return nil
 }
