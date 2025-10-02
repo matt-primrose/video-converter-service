@@ -43,9 +43,8 @@ type WebSocketConfig struct {
 }
 
 type StorageConfig struct {
-	Type      string           `yaml:"type" json:"type"`
+	Type      string           `yaml:"type" json:"type"` // Backend: local, azure-blob, s3
 	Local     LocalStorage     `yaml:"local" json:"local"`
-	Docker    DockerStorage    `yaml:"docker" json:"docker"`
 	AzureBlob AzureBlobStorage `yaml:"azure_blob" json:"azure_blob"`
 	S3        S3Storage        `yaml:"s3" json:"s3"`
 }
@@ -72,6 +71,7 @@ type ProcessingConfig struct {
 	MaxConcurrentJobs int    `yaml:"max_concurrent_jobs" json:"max_concurrent_jobs"`
 	JobTimeoutMinutes int    `yaml:"job_timeout_minutes" json:"job_timeout_minutes"`
 	TempDir           string `yaml:"temp_dir" json:"temp_dir"`
+	OutputsDir        string `yaml:"outputs_dir" json:"outputs_dir"` // Local filesystem staging area
 	MaxTempDiskGB     int    `yaml:"max_temp_disk_gb" json:"max_temp_disk_gb"`
 }
 
@@ -215,9 +215,6 @@ func loadFromEnv(cfg *Config) {
 	if val := os.Getenv("STORAGE_LOCAL_PATH"); val != "" {
 		cfg.Storage.Local.Path = val
 	}
-	if val := os.Getenv("STORAGE_DOCKER_PATH"); val != "" {
-		cfg.Storage.Docker.Path = val
-	}
 	if val := os.Getenv("STORAGE_AZURE_BLOB_ACCOUNT"); val != "" {
 		cfg.Storage.AzureBlob.Account = val
 	}
@@ -236,6 +233,9 @@ func loadFromEnv(cfg *Config) {
 		if jobs, err := strconv.Atoi(val); err == nil {
 			cfg.Processing.MaxConcurrentJobs = jobs
 		}
+	}
+	if val := os.Getenv("PROCESSING_OUTPUTS_DIR"); val != "" {
+		cfg.Processing.OutputsDir = val
 	}
 	if val := os.Getenv("PROCESSING_JOB_TIMEOUT_MINUTES"); val != "" {
 		if timeout, err := strconv.Atoi(val); err == nil {

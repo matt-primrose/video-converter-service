@@ -180,46 +180,45 @@ func (w *Worker) uploadOutputFiles(ctx context.Context, job *models.ConversionJo
 		"outputCount", len(result.Outputs),
 	)
 
-	// For local storage (both local and docker), copy files to outputs directory
-	if w.config.Storage.Type == "local" || w.config.Storage.Type == "docker" {
+	switch w.config.Storage.Type {
+	case "local":
+		// For local storage, copy files to local filesystem staging area
 		return w.copyOutputFilesToLocal(job, result)
-	}
 
-	// TODO: Implement actual upload logic for other storage types (Azure, S3, etc.)
-	// For now, just log the files that would be uploaded
-	for _, output := range result.Outputs {
-		slog.Info("Output ready for upload",
-			"jobId", job.JobID,
-			"outputName", output.Name,
-			"type", output.Type,
-			"fileCount", len(output.Files),
-		)
-
-		for _, file := range output.Files {
-			slog.Debug("File ready for upload",
-				"jobId", job.JobID,
-				"filePath", file.Path,
-				"size", file.Size,
-				"checksum", file.Checksum,
-			)
+	case "azure-blob":
+		// First copy to local staging area, then upload to Azure Blob
+		if err := w.copyOutputFilesToLocal(job, result); err != nil {
+			return fmt.Errorf("failed to stage files locally: %w", err)
 		}
-	}
+		// TODO: Implement Azure Blob upload
+		slog.Warn("Azure Blob upload not yet implemented", "jobId", job.JobID)
+		return nil
 
-	return nil
+	case "s3":
+		// First copy to local staging area, then upload to S3
+		if err := w.copyOutputFilesToLocal(job, result); err != nil {
+			return fmt.Errorf("failed to stage files locally: %w", err)
+		}
+		// TODO: Implement S3 upload
+		slog.Warn("S3 upload not yet implemented", "jobId", job.JobID)
+		return nil
+
+	default:
+		return fmt.Errorf("unsupported storage type: %s", w.config.Storage.Type)
+	}
 }
 
-// copyOutputFilesToLocal copies output files to the local outputs directory
+// copyOutputFilesToLocal copies output files to the local filesystem staging area
 func (w *Worker) copyOutputFilesToLocal(job *models.ConversionJob, result *transcoder.TranscodeResult) error {
-	// Determine the appropriate storage path based on storage type
-	var storagePath string
-	if w.config.Storage.Type == "docker" {
-		storagePath = w.config.Storage.Docker.Path
-	} else {
-		storagePath = w.config.Storage.Local.Path
+	// Use the processing outputs directory as the local filesystem staging area
+	outputsPath := w.config.Processing.OutputsDir
+	if outputsPath == "" {
+		// Fallback to local storage path for backward compatibility
+		outputsPath = w.config.Storage.Local.Path
 	}
 
-	// Create job-specific directory within the storage path
-	outputsDir := filepath.Join(storagePath, job.JobID)
+	// Create job-specific directory within the outputs path
+	outputsDir := filepath.Join(outputsPath, job.JobID)
 
 	// Create job-specific output directory
 	if err := os.MkdirAll(outputsDir, 0755); err != nil {

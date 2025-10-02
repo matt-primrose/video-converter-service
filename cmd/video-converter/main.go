@@ -33,8 +33,8 @@ func main() {
 	var (
 		testMode    = flag.Bool("test", false, "Run in test mode")
 		testType    = flag.String("test-type", "direct", "Test type: direct, worker, upload, create-video")
-		jobFile     = flag.String("job", "examples/job.json", "Job configuration file")
-		inputVideo  = flag.String("input", "./test-videos/sample.mp4", "Input video file")
+		jobFile     = flag.String("job", "", "Job configuration file (required for worker and upload tests)")
+		inputVideo  = flag.String("input", "", "Input video file (required for direct and create-video tests)")
 		outputFile  = flag.String("output", "", "Output file (for direct transcoding)")
 		logLevel    = flag.String("log-level", "", "Log level override: debug, info, warn, error")
 		waitTime    = flag.Duration("wait", 5*time.Minute, "Wait time for worker jobs (default: 5m)")
@@ -293,6 +293,13 @@ func setupHealthRoutes(w *worker.Worker) http.Handler {
 func testDirectTranscoding(inputFile, outputFile string, cfg *config.Config) {
 	fmt.Println("--- Direct Transcoding Test ---")
 
+	// Validate required input parameter
+	if inputFile == "" {
+		fmt.Printf("Error: Input video file is required for direct transcoding test\n")
+		fmt.Printf("Usage: -input \"/path/to/video.mp4\"\n")
+		os.Exit(1)
+	}
+
 	// Check if input exists
 	if _, err := os.Stat(inputFile); os.IsNotExist(err) {
 		fmt.Printf("Input file not found: %s\n", inputFile)
@@ -340,6 +347,13 @@ func testDirectTranscoding(inputFile, outputFile string, cfg *config.Config) {
 func testWorkerProcessing(jobFile string, waitTime time.Duration, cfg *config.Config) {
 	fmt.Println("--- Worker Processing Test ---")
 
+	// Validate required job file parameter
+	if jobFile == "" {
+		fmt.Printf("Error: Job configuration file is required for worker test\n")
+		fmt.Printf("Usage: -job \"examples/local-job.json\" (for local) or -job \"examples/docker-job.json\" (for Docker)\n")
+		os.Exit(1)
+	}
+
 	// Create worker
 	w, err := worker.New(cfg)
 	if err != nil {
@@ -381,9 +395,36 @@ func testWorkerProcessing(jobFile string, waitTime time.Duration, cfg *config.Co
 		os.Exit(1)
 	}
 
-	fmt.Printf("Job submitted, waiting %v for processing...\n", waitTime)
-	time.Sleep(waitTime)
-	cancel()
+	fmt.Printf("Job submitted, waiting up to %v for processing...\n", waitTime)
+
+	// Monitor job completion instead of fixed wait
+	startTime := time.Now()
+	ticker := time.NewTicker(10 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			elapsed := time.Since(startTime)
+			if elapsed > waitTime {
+				fmt.Printf("Job timed out after %v\n", elapsed)
+				cancel()
+				goto checkResults
+			}
+
+			// Check if job completed by looking for output files or completed status
+			fmt.Printf("Job still processing... elapsed: %v\n", elapsed.Round(time.Second))
+
+		case <-time.After(waitTime):
+			fmt.Printf("Job wait time exceeded\n")
+			cancel()
+			goto checkResults
+		}
+	}
+
+checkResults:
+	// Give a moment for cleanup
+	time.Sleep(2 * time.Second)
 
 	// Check results
 	checkJobResults(&job, cfg)
@@ -391,6 +432,13 @@ func testWorkerProcessing(jobFile string, waitTime time.Duration, cfg *config.Co
 
 func testFileUpload(jobFile string, cfg *config.Config) {
 	fmt.Println("--- File Upload Test ---")
+
+	// Validate required job file parameter
+	if jobFile == "" {
+		fmt.Printf("Error: Job configuration file is required for upload test\n")
+		fmt.Printf("Usage: -job \"examples/local-job.json\" (for local) or -job \"examples/docker-job.json\" (for Docker)\n")
+		os.Exit(1)
+	}
 
 	// Load job
 	jobData, err := os.ReadFile(jobFile)
@@ -415,8 +463,13 @@ func testFileUpload(jobFile string, cfg *config.Config) {
 
 	fmt.Printf("Found temp directory: %s\n", tempDir)
 
-	// Mock upload process - copy files from temp to outputs
-	outputsDir := filepath.Join(cfg.Storage.Local.Path, job.JobID)
+	// Mock upload process - copy files from temp to outputs staging area
+	outputPath := cfg.Processing.OutputsDir
+	if outputPath == "" {
+		// Fallback to local storage path for backward compatibility
+		outputPath = cfg.Storage.Local.Path
+	}
+	outputsDir := filepath.Join(outputPath, job.JobID)
 	fmt.Printf("Target outputs directory: %s\n", outputsDir)
 
 	if err := os.MkdirAll(outputsDir, 0755); err != nil {
@@ -476,6 +529,13 @@ func testFileUpload(jobFile string, cfg *config.Config) {
 func createTestVideo(outputPath string, duration time.Duration, resolution string, cfg *config.Config) {
 	fmt.Println("--- Create Test Video ---")
 
+	// Validate required output path parameter
+	if outputPath == "" {
+		fmt.Printf("Error: Output path is required for create-video test\n")
+		fmt.Printf("Usage: -input \"./video_source/sample.mp4\"\n")
+		os.Exit(1)
+	}
+
 	// Parse resolution
 	parts := strings.Split(resolution, "x")
 	if len(parts) != 2 {
@@ -516,7 +576,12 @@ func createTestVideo(outputPath string, duration time.Duration, resolution strin
 }
 
 func checkJobResults(job *models.ConversionJob, cfg *config.Config) {
-	outputsDir := filepath.Join(cfg.Storage.Local.Path, job.JobID)
+	outputPath := cfg.Processing.OutputsDir
+	if outputPath == "" {
+		// Fallback to local storage path for backward compatibility
+		outputPath = cfg.Storage.Local.Path
+	}
+	outputsDir := filepath.Join(outputPath, job.JobID)
 	fmt.Printf("\nChecking outputs directory: %s\n", outputsDir)
 
 	if _, err := os.Stat(outputsDir); err == nil {
