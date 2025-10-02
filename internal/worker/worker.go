@@ -161,7 +161,7 @@ func (w *Worker) processJob(workerID int, job *models.ConversionJob) {
 	slog.Info("Job completed",
 		"workerId", workerID,
 		"jobId", job.JobID,
-		"duration", job.Status.CompletedAt.Sub(job.Status.StartedAt),
+		"completed_at", job.Status.CompletedAt.Format(time.RFC3339),
 	)
 }
 
@@ -222,7 +222,7 @@ func (w *Worker) executeConversion(ctx context.Context, job *models.ConversionJo
 
 	slog.Info("Conversion execution completed",
 		"jobId", job.JobID,
-		"duration", result.Duration,
+		"duration", formatDuration(result.Duration),
 		"outputCount", len(result.Outputs),
 	)
 
@@ -234,4 +234,24 @@ func (w *Worker) GetJobStatus() map[string]models.JobStatus {
 	// TODO: Implement job status tracking
 	// This would typically involve storing job statuses in memory or a database
 	return make(map[string]models.JobStatus)
+}
+
+// formatDuration formats a time.Duration into a human-readable string
+// showing hours, minutes, and seconds as appropriate
+func formatDuration(d time.Duration) string {
+	if d < time.Second {
+		return fmt.Sprintf("%.0fms", float64(d)/float64(time.Millisecond))
+	}
+
+	hours := int(d.Hours())
+	minutes := int(d.Minutes()) % 60
+	seconds := int(d.Seconds()) % 60
+
+	if hours > 0 {
+		return fmt.Sprintf("%dh %dm %ds", hours, minutes, seconds)
+	} else if minutes > 0 {
+		return fmt.Sprintf("%dm %ds", minutes, seconds)
+	} else {
+		return fmt.Sprintf("%ds", seconds)
+	}
 }
