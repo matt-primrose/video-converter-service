@@ -82,7 +82,7 @@ STORAGE_S3_REGION=us-east-1
 # Processing Configuration
 PROCESSING_MAX_CONCURRENT_JOBS=2
 PROCESSING_JOB_TIMEOUT_MINUTES=30
-PROCESSING_TEMP_DIR=/tmp/video-converter
+PROCESSING_TEMP_DIR=/app/video_temp
 PROCESSING_MAX_TEMP_DISK_GB=10
 
 # ffmpeg Configuration
@@ -129,7 +129,7 @@ storage:
 processing:
   max_concurrent_jobs: 2
   job_timeout_minutes: 30
-  temp_dir: "./temp"
+  temp_dir: "./video_temp"
   max_temp_disk_gb: 5
 
 ffmpeg:

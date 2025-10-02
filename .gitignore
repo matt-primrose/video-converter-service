@@ -36,11 +36,12 @@ config.yaml
 temp/
 tmp/
 *.tmp
-outputs/
 *.log
 logs/
 bin/video-converter
-test-videos/
+video_outputs/*
+video_source/*
+video_temp/*
 
 # Docker volumes and data
 monitoring/data/

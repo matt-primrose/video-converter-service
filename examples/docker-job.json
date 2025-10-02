@@ -1,0 +1,17 @@
+{
+    "jobId": "example-conversion-001",
+    "correlationId": "user-upload-12345",
+    "videoId": "sample-video",
+    "template": "default",
+    "source": {
+        "uri": "/app/video_source/sample.mp4",
+        "type": "local",
+        "checksum": ""
+    },
+    "metadata": {
+        "user_id": "user123",
+        "upload_session": "session456",
+        "original_filename": "sample.mp4",
+        "description": "Example video conversion job"
+    }
+}

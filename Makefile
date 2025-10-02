@@ -12,17 +12,12 @@ help:
 	@echo "  down          - Stop and remove all containers"
 	@echo "  logs          - Follow service logs"
 	@echo "  clean         - Remove all containers, networks, and volumes"
-	@echo "  test-videos   - Create test video directory structure"
+	@echo "  test-videos   - Create video_source directory for test videos"
 	@echo "  check-ffmpeg  - Check ffmpeg capabilities in container"
 	@echo ""
 	@echo "Service URLs (when running):"
 	@echo "  Video Converter API:  http://localhost:8080"
 	@echo "  Health Checks:        http://localhost:8081"
-	@echo "  Metrics:              http://localhost:9090/metrics"
-	@echo "  Prometheus:           http://localhost:9091 (with monitoring)"
-	@echo "  Grafana:              http://localhost:3000 (with monitoring, admin/admin)"
-	@echo "  Jaeger:               http://localhost:16686 (with tracing)"
-	@echo "  MinIO Console:        http://localhost:9001 (with s3-storage)"
 
 # Build the service
 build:
@@ -55,9 +50,9 @@ clean:
 
 # Create test video directory structure
 test-videos:
-	mkdir -p test-videos
-	@echo "Created test-videos directory. Place your test video files here."
-	@echo "They will be mounted to /app/test-videos in the container."
+	mkdir -p video_source
+	@echo "Created video_source directory. Place your test video files here."
+	@echo "They will be mounted to /app/video_source in the container."
 
 # Quick development cycle
 dev: build up logs

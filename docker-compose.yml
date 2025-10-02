@@ -11,14 +11,15 @@ services:
       - SERVER_HOST=0.0.0.0
       - SERVER_HEALTH_CHECK_PORT=8081
 
-      # Storage configuration (local for development)
-      - STORAGE_TYPE=local
-      - STORAGE_LOCAL_PATH=/app/outputs
+      # Storage configuration (valid types: local, docker, azure-blob (not yet implemented), s3 (not yet implemented))
+      - STORAGE_TYPE=docker
+      - STORAGE_LOCAL_PATH=./video_outputs
+      - STORAGE_DOCKER_PATH=/app/video_outputs
 
       # Processing configuration
       - PROCESSING_MAX_CONCURRENT_JOBS=2
       - PROCESSING_JOB_TIMEOUT_MINUTES=60
-      - PROCESSING_TEMP_DIR=/tmp/video-converter
+      - PROCESSING_TEMP_DIR=/app/video_temp
       - PROCESSING_MAX_TEMP_DISK_GB=5
 
       # FFmpeg configuration
@@ -33,15 +34,15 @@ services:
       - OBSERVABILITY_ENABLE_TRACING=false
       - OBSERVABILITY_JAEGER_ENDPOINT=
 
-      # Job templates - basic default template
-      - JOB_TEMPLATES={"default":{"outputs":[{"name":"hls-adaptive","package":"hls","profiles":[{"name":"240p","width":426,"height":240,"video_bitrate_kbps":350,"audio_bitrate_kbps":64},{"name":"720p","width":1280,"height":720,"video_bitrate_kbps":2500,"audio_bitrate_kbps":128}],"segment_length_s":6,"container":"fmp4","destination":"vod/{videoId}/hls/"},{"name":"progressive-fallback","package":"progressive","profile":"720p","destination":"vod/{videoId}/progressive/720p.mp4"}],"ffmpeg":{"preset":"fast","hwaccel":"","extra_args":[]},"notifications":{"webhook_url":"","on_complete":true,"on_failure":true}}}
+      # Job templates - complete default template (all profiles: 240p, 360p, 720p, 1080p, 4k + progressive outputs)
+      - JOB_TEMPLATES={"default":{"outputs":[{"name":"hls-adaptive","package":"hls","profiles":[{"name":"240p","width":426,"height":240,"video_bitrate_kbps":350,"audio_bitrate_kbps":64},{"name":"360p","width":640,"height":360,"video_bitrate_kbps":700,"audio_bitrate_kbps":96},{"name":"720p","width":1280,"height":720,"video_bitrate_kbps":2500,"audio_bitrate_kbps":128},{"name":"1080p","width":1920,"height":1080,"video_bitrate_kbps":4000,"audio_bitrate_kbps":128},{"name":"4k","width":3840,"height":2160,"video_bitrate_kbps":8000,"audio_bitrate_kbps":128}],"segment_length_s":6,"container":"fmp4","destination":"vod/{videoId}/hls/"},{"name":"progressive-fallback","package":"progressive","profile":"720p","destination":"vod/{videoId}/progressive/720p.mp4"},{"name":"progressive-hd","package":"progressive","profile":"1080p","destination":"vod/{videoId}/progressive/1080p.mp4"}],"ffmpeg":{"preset":"fast","hwaccel":"","extra_args":[]},"notifications":{"webhook_url":"","on_complete":true,"on_failure":true}}}
     volumes:
       # Persistent storage for outputs
-      - video_outputs:/app/outputs
+      - ./video_outputs:/app/video_outputs
       # Temporary processing directory
-      - video_temp:/tmp/video-converter
+      - ./video_temp:/app/video_temp
       # Mount source videos for testing (optional)
-      - ./test-videos:/app/test-videos:ro
+      - ./video_source:/app/video_source:ro
     restart: unless-stopped
     healthcheck:
       test: [ "CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8081/healthz" ]

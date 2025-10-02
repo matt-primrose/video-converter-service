@@ -4,7 +4,7 @@
     "videoId": "sample-video",
     "template": "default",
     "source": {
-        "uri": "./test-videos/sample.mp4",
+        "uri": "./video_source/sample.mp4",
         "type": "local",
         "checksum": ""
     },

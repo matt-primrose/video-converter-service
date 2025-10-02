@@ -19,12 +19,18 @@ A containerized Go service that converts videos using ffmpeg, designed for cloud
 - ffmpeg installed (for local testing)
 - Docker (for containerized deployment)
 
-### Local Development
+> **Windows Users**: The examples below show both `make` commands (Linux/macOS) and `docker-compose` commands (Windows PowerShell). Use the PowerShell alternatives if `make` is not available.
 
-1. **Clone and build:**
-   ```bash
+### Clone
+```bash
    git clone https://github.com/matt-primrose/video-converter-service.git
    cd video-converter-service
+   ```
+
+### Local Video Conversion Test
+
+1. **build:**
+   ```bash
    go build -o bin/video-converter ./cmd/video-converter
    ```
 
@@ -34,7 +40,88 @@ A containerized Go service that converts videos using ffmpeg, designed for cloud
    # Edit config.yaml as needed
    ```
 
-3. **Run the service:**
+3. **Set up test environment:**
+   ```bash
+   # Create video_source directory
+   # Linux/macOS with make:
+   make test-videos
+   
+   # Windows PowerShell alternative:
+   mkdir -p video_source
+   
+   # Create a test video file (30 seconds, 4K resolution)
+   go run cmd/video-converter/main.go -test -test-type create-video -input "./video_source/sample.mp4"
+   ```
+
+4. **Test video conversion:**
+   ```bash
+   # Run video conversion using the local job configuration
+   go run cmd/video-converter/main.go -test -test-type worker -job "examples/local-job.json"
+   ```
+   
+   This will process the test video and generate:
+   - 5 HLS profiles (240p, 360p, 720p, 1080p, 4k) with multiple segments each
+   - 2 progressive MP4 files (720p.mp4, 1080p.mp4)
+   - All output files in `./video_outputs/example-conversion-001/`
+
+### Docker Video Conversion Test
+
+#### Quick Start
+
+1. **Set up test environment:**
+   ```bash
+   # Create video_source directory
+   # Linux/macOS with make:
+   make test-videos
+   
+   # Windows PowerShell alternative:
+   mkdir -p video_source
+   
+   # Create a test video file (30 seconds, 4K resolution)
+   go run cmd/video-converter/main.go -test -test-type create-video -input "./video_source/sample.mp4"
+   ```
+
+2. **Build and start Docker service:**
+   ```bash
+   # Linux/macOS with make:
+   make build
+   make up
+   
+   # Windows PowerShell alternative:
+   docker-compose build video-converter
+   docker-compose up -d video-converter
+   ```
+
+3. **Test video conversion in Docker:**
+   ```bash
+   # Create the examples directory in the container
+   docker exec video-converter-service-video-converter-1 mkdir -p /app/examples
+   
+   # Copy job configuration into the container
+   docker cp examples/docker-job.json video-converter-service-video-converter-1:/app/examples/docker-job.json
+   
+   # Run the worker test with the job file
+   docker exec video-converter-service-video-converter-1 ./video-converter -test -test-type worker -job "examples/docker-job.json"
+   ```
+   
+   This will process the test video and generate:
+   - 5 HLS profiles (240p, 360p, 720p, 1080p, 4k) with multiple segments each
+   - 2 progressive MP4 files (720p.mp4, 1080p.mp4)
+   - All output files in `./video_outputs/example-conversion-001/` on your host machine
+
+4. **View logs and stop service:**
+   ```bash
+   # Linux/macOS with make:
+   make logs
+   make down
+   
+   # Windows PowerShell alternative:
+   docker-compose logs -f video-converter
+   docker-compose down
+   ```
+
+### Running as a service
+
    ```bash
    ./bin/video-converter
    ```
@@ -42,7 +129,7 @@ A containerized Go service that converts videos using ffmpeg, designed for cloud
 The service will start with:
 - Main server: `http://localhost:8080`
 - Health checks: `http://localhost:8081`
-- Metrics: `http://localhost:9090/metrics`
+- Metrics: `http://localhost:9090/metrics` (not yet implemented)
 
 ### Local Testing & Development
 
@@ -65,10 +152,10 @@ go run cmd/video-converter/main.go -test [flags]
 **Direct Transcoding Test:**
 ```bash
 # Test direct 720p transcoding
-go run cmd/video-converter/main.go -test -test-type direct -input "./test-videos/sample.mp4"
+go run cmd/video-converter/main.go -test -test-type direct -input "./video_source/sample.mp4"
 
 # Custom output location
-go run cmd/video-converter/main.go -test -test-type direct -input "./test-videos/sample.mp4" -output "./outputs/test.mp4"
+go run cmd/video-converter/main.go -test -test-type direct -input "./video_source/sample.mp4" -output "./video_outputs/test.mp4"
 ```
 
 **Worker Pipeline Test:**
@@ -89,11 +176,11 @@ go run cmd/video-converter/main.go -test -test-type upload
 **Create Test Videos:**
 ```bash
 # Create 4K test video (30 seconds)
-go run cmd/video-converter/main.go -test -test-type create-video -input "./test-videos/4k-sample.mp4"
+go run cmd/video-converter/main.go -test -test-type create-video -input "./video_source/4k-sample.mp4"
 
 # Create custom test video
 go run cmd/video-converter/main.go -test -test-type create-video \
-  -input "./test-videos/small.mp4" \
+  -input "./video_source/small.mp4" \
   -video-length 10s \
   -video-res 1280x720
 ```
@@ -111,17 +198,17 @@ go run cmd/video-converter/main.go -test -test-type create-video \
 
 #### Test Video Files
 
-The service expects test videos in the `test-videos/` directory. The example job configuration references `test-videos/sample.mp4`.
+The service expects test videos in the `video_source/` directory. The example job configuration references `video_source/sample.mp4`.
 
 You can use any MP4, MOV, AVI, or other video format that FFmpeg supports. If you don't have test videos, you can create them using the built-in test mode:
 
 ```bash
 # Create a 4K test video (30 seconds)
-go run cmd/video-converter/main.go -test -test-type create-video -input "./test-videos/sample.mp4"
+go run cmd/video-converter/main.go -test -test-type create-video -input "./video_source/sample.mp4"
 
 # Create a smaller test video for faster testing
 go run cmd/video-converter/main.go -test -test-type create-video \
-  -input "./test-videos/small-test.mp4" \
+  -input "./video_source/small-test.mp4" \
   -video-length 10s \
   -video-res 1280x720
 ```
@@ -136,15 +223,17 @@ The generated test videos include:
 
 #### Quick Start with Docker Compose
 ```bash
-# Build and start the service
+# Linux/macOS with make:
 make build
 make up
-
-# View logs
 make logs
-
-# Stop the service
 make down
+
+# Windows PowerShell alternative:
+docker-compose build video-converter
+docker-compose up -d video-converter
+docker-compose logs -f video-converter
+docker-compose down
 ```
 
 #### Development with Live Config
@@ -159,11 +248,13 @@ docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d
 
 #### Full Stack with Monitoring
 ```bash
-# Start with Prometheus and Grafana
-make up-monitoring
+# Linux/macOS with make:
+make up-monitoring  # Start with Prometheus and Grafana
+make up-full        # Start everything (includes Jaeger tracing and MinIO S3)
 
-# Or start everything (includes Jaeger tracing and MinIO S3)
-make up-full
+# Windows PowerShell alternative:
+docker-compose --profile monitoring up -d
+docker-compose --profile monitoring --profile tracing --profile s3-storage up -d
 ```
 
 **Service URLs:**
@@ -186,10 +277,64 @@ docker run -d \
   -p 8080:8080 \
   -p 8081:8081 \
   -p 9090:9090 \
-  -e STORAGE_TYPE=local \
-  -e STORAGE_LOCAL_PATH=/app/outputs \
+  -e STORAGE_TYPE=docker \
+  -e STORAGE_DOCKER_PATH=/app/video_outputs \
   video-converter-service
 ```
+
+#### Testing with Docker
+
+The Docker setup includes volume mappings that allow you to easily test with local video files and job configurations.
+
+**Prerequisites:**
+1. Start the Docker service: `docker-compose up -d`
+2. Place test videos in `./video_source/` (automatically mapped to `/app/video_source/` in container)
+3. Converted videos will appear in `./video_outputs/` (mapped to `/app/video_outputs/` in container)
+
+**Run a test job using your local job file:**
+
+```bash
+# Create the examples directory in the container
+docker exec video-converter-service-video-converter-1 mkdir -p /app/examples
+
+# Copy your job configuration into the container
+docker cp examples/job.json video-converter-service-video-converter-1:/app/examples/job.json
+
+# Run the worker test with your job file
+docker exec video-converter-service-video-converter-1 ./video-converter -test -test-type worker -log-level info
+```
+
+**Your job file format** (`examples/job.json`):
+```json
+{
+  "jobId": "example-conversion-001",
+  "correlationId": "user-upload-12345", 
+  "videoId": "sample-video",
+  "template": "default",
+  "source": {
+    "uri": "/app/video_source/your-video.mp4",
+    "type": "local",
+    "checksum": ""
+  },
+  "metadata": {
+    "user_id": "user123",
+    "upload_session": "session456",
+    "original_filename": "your-video.mp4",
+    "description": "Your video conversion job"
+  }
+}
+```
+
+**What happens:**
+- The worker reads your job file from `/app/examples/job.json`
+- Processes the source video from `/app/video_source/your-video.mp4`  
+- Generates all 5 HLS profiles (240p, 360p, 720p, 1080p, 4k) + 2 progressive MP4s (720p, 1080p)
+- Outputs 19 total files to `./video_outputs/your-job-id/` on your host machine
+
+**Volume Mappings:**
+- `./video_source` ↔ `/app/video_source` (read-only, for input videos)
+- `./video_outputs` ↔ `/app/video_outputs` (read-write, for converted videos)  
+- `./video_temp` ↔ `/app/video_temp` (temporary processing files)
 
 ## Configuration
 
@@ -204,8 +349,9 @@ SERVER_HOST=0.0.0.0
 SERVER_HEALTH_CHECK_PORT=8081
 
 # Storage
-STORAGE_TYPE=local  # local|azure-blob|s3
-STORAGE_LOCAL_PATH=/app/outputs
+STORAGE_TYPE=local  # local|docker|azure-blob|s3
+STORAGE_LOCAL_PATH=./video_outputs
+STORAGE_DOCKER_PATH=/app/video_outputs
 
 # Processing
 PROCESSING_MAX_CONCURRENT_JOBS=2
@@ -271,8 +417,8 @@ make dev            # Quick development cycle (build + up + logs)
 
 1. **Prepare test videos:**
    ```bash
-   make test-videos
-   # Place your test video files in ./test-videos/
+   make test-videos  # Creates video_source directory
+   # Place your test video files in ./video_source/
    ```
 
 2. **Submit a conversion job via API** (when WebSocket is implemented):
@@ -284,7 +430,7 @@ make dev            # Quick development cycle (build + up + logs)
        "videoId": "sample-video",
        "template": "default",
        "source": {
-         "uri": "/app/test-videos/sample.mp4",
+         "uri": "/app/video_source/sample.mp4",
          "type": "local"
        }
      }'
@@ -318,7 +464,7 @@ video-converter-service/
 │   ├── grafana/               # Grafana dashboards and config
 │   └── prometheus.yml         # Prometheus scraping configuration
 ├── bin/                       # Compiled binaries (generated)
-├── test-videos/               # Sample test files
+├── video_source/              # Source video files for testing
 ├── config.yaml.example        # Example configuration
 ├── config.yaml               # Local configuration (gitignored)
 ├── docker-compose.yml         # Production container setup

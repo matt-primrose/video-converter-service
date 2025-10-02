@@ -180,8 +180,8 @@ func (w *Worker) uploadOutputFiles(ctx context.Context, job *models.ConversionJo
 		"outputCount", len(result.Outputs),
 	)
 
-	// For local storage, copy files to outputs directory
-	if w.config.Storage.Type == "local" {
+	// For local storage (both local and docker), copy files to outputs directory
+	if w.config.Storage.Type == "local" || w.config.Storage.Type == "docker" {
 		return w.copyOutputFilesToLocal(job, result)
 	}
 
@@ -210,8 +210,16 @@ func (w *Worker) uploadOutputFiles(ctx context.Context, job *models.ConversionJo
 
 // copyOutputFilesToLocal copies output files to the local outputs directory
 func (w *Worker) copyOutputFilesToLocal(job *models.ConversionJob, result *transcoder.TranscodeResult) error {
-	// Create job-specific directory within the local storage path
-	outputsDir := filepath.Join(w.config.Storage.Local.Path, job.JobID)
+	// Determine the appropriate storage path based on storage type
+	var storagePath string
+	if w.config.Storage.Type == "docker" {
+		storagePath = w.config.Storage.Docker.Path
+	} else {
+		storagePath = w.config.Storage.Local.Path
+	}
+
+	// Create job-specific directory within the storage path
+	outputsDir := filepath.Join(storagePath, job.JobID)
 
 	// Create job-specific output directory
 	if err := os.MkdirAll(outputsDir, 0755); err != nil {

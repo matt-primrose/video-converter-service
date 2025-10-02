@@ -45,11 +45,16 @@ type WebSocketConfig struct {
 type StorageConfig struct {
 	Type      string           `yaml:"type" json:"type"`
 	Local     LocalStorage     `yaml:"local" json:"local"`
+	Docker    DockerStorage    `yaml:"docker" json:"docker"`
 	AzureBlob AzureBlobStorage `yaml:"azure_blob" json:"azure_blob"`
 	S3        S3Storage        `yaml:"s3" json:"s3"`
 }
 
 type LocalStorage struct {
+	Path string `yaml:"path" json:"path"`
+}
+
+type DockerStorage struct {
 	Path string `yaml:"path" json:"path"`
 }
 
@@ -135,7 +140,7 @@ func Load() (*Config, error) {
 		Processing: ProcessingConfig{
 			MaxConcurrentJobs: 2,
 			JobTimeoutMinutes: 60, // Increased default for longer video processing
-			TempDir:           "/tmp/video-converter",
+			TempDir:           "./video_temp",
 			MaxTempDiskGB:     10,
 		},
 		FFmpeg: FFmpegConfig{
@@ -209,6 +214,9 @@ func loadFromEnv(cfg *Config) {
 	}
 	if val := os.Getenv("STORAGE_LOCAL_PATH"); val != "" {
 		cfg.Storage.Local.Path = val
+	}
+	if val := os.Getenv("STORAGE_DOCKER_PATH"); val != "" {
+		cfg.Storage.Docker.Path = val
 	}
 	if val := os.Getenv("STORAGE_AZURE_BLOB_ACCOUNT"); val != "" {
 		cfg.Storage.AzureBlob.Account = val
@@ -300,7 +308,7 @@ func validate(cfg *Config) error {
 		return fmt.Errorf("storage type is required")
 	}
 
-	validStorageTypes := []string{"local", "azure-blob", "s3"}
+	validStorageTypes := []string{"local", "docker", "azure-blob", "s3"}
 	valid := false
 	for _, t := range validStorageTypes {
 		if cfg.Storage.Type == t {
