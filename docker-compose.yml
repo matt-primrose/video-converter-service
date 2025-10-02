@@ -29,7 +29,7 @@ services:
       - FFMPEG_HARDWARE_ACCEL=
 
       # Observability configuration
-      - OBSERVABILITY_LOG_LEVEL=debug
+      - OBSERVABILITY_LOG_LEVEL=info
       - OBSERVABILITY_METRICS_PORT=9090
       - OBSERVABILITY_ENABLE_TRACING=false
       - OBSERVABILITY_JAEGER_ENDPOINT=

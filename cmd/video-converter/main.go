@@ -68,13 +68,12 @@ func main() {
 }
 
 func runTestMode(testType, jobFile, inputVideo, outputFile, logLevel string, waitTime, videoLength time.Duration, videoRes string) {
-	fmt.Printf("=== Video Converter Test Mode ===\n")
-	fmt.Printf("Test Type: %s\n", testType)
+	slog.Info("Starting Video Converter Test Mode", "test_type", testType)
 
 	// Load configuration
 	cfg, err := config.Load()
 	if err != nil {
-		fmt.Printf("Failed to load configuration: %v\n", err)
+		slog.Error("Failed to load configuration", "error", err)
 		os.Exit(1)
 	}
 
@@ -95,8 +94,7 @@ func runTestMode(testType, jobFile, inputVideo, outputFile, logLevel string, wai
 	case "create-video":
 		createTestVideo(inputVideo, videoLength, videoRes, cfg)
 	default:
-		fmt.Printf("Unknown test type: %s\n", testType)
-		fmt.Println("Available types: direct, worker, upload, create-video")
+		slog.Error("Unknown test type", "test_type", testType, "available_types", []string{"direct", "worker", "upload", "create-video"})
 		os.Exit(1)
 	}
 }
@@ -291,18 +289,17 @@ func setupHealthRoutes(w *worker.Worker) http.Handler {
 // Test functions for development and debugging
 
 func testDirectTranscoding(inputFile, outputFile string, cfg *config.Config) {
-	fmt.Println("--- Direct Transcoding Test ---")
+	slog.Info("Starting Direct Transcoding Test")
 
 	// Validate required input parameter
 	if inputFile == "" {
-		fmt.Printf("Error: Input video file is required for direct transcoding test\n")
-		fmt.Printf("Usage: -input \"/path/to/video.mp4\"\n")
+		slog.Error("Input video file is required for direct transcoding test", "usage", "-input \"/path/to/video.mp4\"")
 		os.Exit(1)
 	}
 
 	// Check if input exists
 	if _, err := os.Stat(inputFile); os.IsNotExist(err) {
-		fmt.Printf("Input file not found: %s\n", inputFile)
+		slog.Error("Input file not found", "file", inputFile)
 		os.Exit(1)
 	}
 
@@ -313,8 +310,7 @@ func testDirectTranscoding(inputFile, outputFile string, cfg *config.Config) {
 		outputFile = filepath.Join(dir, base+"_720p.mp4")
 	}
 
-	fmt.Printf("Input: %s\n", inputFile)
-	fmt.Printf("Output: %s\n", outputFile)
+	slog.Info("Direct transcoding configuration", "input", inputFile, "output", outputFile)
 
 	// Simple 720p transcoding using exec directly
 	start := time.Now()
@@ -329,57 +325,53 @@ func testDirectTranscoding(inputFile, outputFile string, cfg *config.Config) {
 		"-y", outputFile)
 
 	if err := cmd.Run(); err != nil {
-		fmt.Printf("Transcoding failed: %v\n", err)
+		slog.Error("Transcoding failed", "error", err)
 		os.Exit(1)
 	}
 
 	duration := time.Since(start)
 	if stat, err := os.Stat(outputFile); err == nil {
-		fmt.Printf("✅ Transcoding completed successfully!\n")
-		fmt.Printf("Duration: %v\n", duration)
-		fmt.Printf("Output size: %d bytes\n", stat.Size())
+		slog.Info("Transcoding completed successfully", "duration", duration, "output_size_bytes", stat.Size())
 	} else {
-		fmt.Printf("❌ Output file not created\n")
+		slog.Error("Output file not created", "expected_file", outputFile)
 		os.Exit(1)
 	}
 }
 
 func testWorkerProcessing(jobFile string, waitTime time.Duration, cfg *config.Config) {
-	fmt.Println("--- Worker Processing Test ---")
+	slog.Info("Starting Worker Processing Test")
 
 	// Validate required job file parameter
 	if jobFile == "" {
-		fmt.Printf("Error: Job configuration file is required for worker test\n")
-		fmt.Printf("Usage: -job \"examples/local-job.json\" (for local) or -job \"examples/docker-job.json\" (for Docker)\n")
+		slog.Error("Job configuration file is required for worker test", "usage", "-job \"examples/local-job.json\" (for local) or -job \"examples/docker-job.json\" (for Docker)")
 		os.Exit(1)
 	}
 
 	// Create worker
 	w, err := worker.New(cfg)
 	if err != nil {
-		fmt.Printf("Failed to create worker: %v\n", err)
+		slog.Error("Failed to create worker", "error", err)
 		os.Exit(1)
 	}
 
 	// Load job
 	jobData, err := os.ReadFile(jobFile)
 	if err != nil {
-		fmt.Printf("Failed to read job file %s: %v\n", jobFile, err)
+		slog.Error("Failed to read job file", "file", jobFile, "error", err)
 		os.Exit(1)
 	}
 
 	var job models.ConversionJob
 	if err := json.Unmarshal(jobData, &job); err != nil {
-		fmt.Printf("Failed to parse job JSON: %v\n", err)
+		slog.Error("Failed to parse job JSON", "error", err)
 		os.Exit(1)
 	}
 
-	fmt.Printf("Job ID: %s\n", job.JobID)
-	fmt.Printf("Source: %s\n", job.Source.URI)
+	slog.Info("Job loaded", "job_id", job.JobID, "source", job.Source.URI)
 
 	// Check source exists
 	if _, err := os.Stat(job.Source.URI); os.IsNotExist(err) {
-		fmt.Printf("Source video not found: %s\n", job.Source.URI)
+		slog.Error("Source video not found", "source", job.Source.URI)
 		os.Exit(1)
 	}
 
@@ -390,12 +382,12 @@ func testWorkerProcessing(jobFile string, waitTime time.Duration, cfg *config.Co
 
 	// Submit job
 	if err := w.SubmitJob(&job); err != nil {
-		fmt.Printf("Failed to submit job: %v\n", err)
+		slog.Error("Failed to submit job", "error", err)
 		cancel()
 		os.Exit(1)
 	}
 
-	fmt.Printf("Job submitted, waiting up to %v for processing...\n", waitTime)
+	slog.Info("Job submitted, monitoring progress", "max_wait_time", waitTime)
 
 	// Monitor job completion instead of fixed wait
 	startTime := time.Now()
@@ -407,16 +399,12 @@ func testWorkerProcessing(jobFile string, waitTime time.Duration, cfg *config.Co
 		case <-ticker.C:
 			elapsed := time.Since(startTime)
 			if elapsed > waitTime {
-				fmt.Printf("Job timed out after %v\n", elapsed)
+				slog.Warn("Job timed out", "elapsed", elapsed)
 				cancel()
 				goto checkResults
 			}
-
-			// Check if job completed by looking for output files or completed status
-			fmt.Printf("Job still processing... elapsed: %v\n", elapsed.Round(time.Second))
-
 		case <-time.After(waitTime):
-			fmt.Printf("Job wait time exceeded\n")
+			slog.Warn("Job wait time exceeded")
 			cancel()
 			goto checkResults
 		}
@@ -431,37 +419,35 @@ checkResults:
 }
 
 func testFileUpload(jobFile string, cfg *config.Config) {
-	fmt.Println("--- File Upload Test ---")
+	slog.Info("Starting File Upload Test")
 
 	// Validate required job file parameter
 	if jobFile == "" {
-		fmt.Printf("Error: Job configuration file is required for upload test\n")
-		fmt.Printf("Usage: -job \"examples/local-job.json\" (for local) or -job \"examples/docker-job.json\" (for Docker)\n")
+		slog.Error("Job configuration file is required for upload test", "usage", "-job \"examples/local-job.json\" (for local) or -job \"examples/docker-job.json\" (for Docker)")
 		os.Exit(1)
 	}
 
 	// Load job
 	jobData, err := os.ReadFile(jobFile)
 	if err != nil {
-		fmt.Printf("Failed to read job file %s: %v\n", jobFile, err)
+		slog.Error("Failed to read job file", "file", jobFile, "error", err)
 		os.Exit(1)
 	}
 
 	var job models.ConversionJob
 	if err := json.Unmarshal(jobData, &job); err != nil {
-		fmt.Printf("Failed to parse job JSON: %v\n", err)
+		slog.Error("Failed to parse job JSON", "error", err)
 		os.Exit(1)
 	}
 
 	// Check temp directory for existing files
 	tempDir := filepath.Join(cfg.Processing.TempDir, job.JobID)
 	if _, err := os.Stat(tempDir); os.IsNotExist(err) {
-		fmt.Printf("No temp directory found: %s\n", tempDir)
-		fmt.Println("Run a worker test first to generate transcoded files.")
+		slog.Error("No temp directory found", "temp_dir", tempDir, "hint", "Run a worker test first to generate transcoded files.")
 		os.Exit(1)
 	}
 
-	fmt.Printf("Found temp directory: %s\n", tempDir)
+	slog.Info("Found temp directory", "temp_dir", tempDir)
 
 	// Mock upload process - copy files from temp to outputs staging area
 	outputPath := cfg.Processing.OutputsDir
@@ -470,10 +456,10 @@ func testFileUpload(jobFile string, cfg *config.Config) {
 		outputPath = cfg.Storage.Local.Path
 	}
 	outputsDir := filepath.Join(outputPath, job.JobID)
-	fmt.Printf("Target outputs directory: %s\n", outputsDir)
+	slog.Info("Target outputs directory", "outputs_dir", outputsDir)
 
 	if err := os.MkdirAll(outputsDir, 0755); err != nil {
-		fmt.Printf("Failed to create outputs directory: %v\n", err)
+		slog.Error("Failed to create outputs directory", "error", err)
 		os.Exit(1)
 	}
 
@@ -512,44 +498,41 @@ func testFileUpload(jobFile string, cfg *config.Config) {
 
 		totalFiles++
 		totalSize += info.Size()
-		fmt.Printf("Copied: %s (%d bytes)\n", relPath, info.Size())
+		slog.Debug("File copied", "path", relPath, "size_bytes", info.Size())
 		return nil
 	})
 
 	if err != nil {
-		fmt.Printf("Error during file copying: %v\n", err)
+		slog.Error("Error during file copying", "error", err)
 		os.Exit(1)
 	}
 
-	fmt.Printf("✅ Upload test completed!\n")
-	fmt.Printf("Files copied: %d\n", totalFiles)
-	fmt.Printf("Total size: %d bytes\n", totalSize)
+	slog.Info("Upload test completed", "files_copied", totalFiles, "total_size_bytes", totalSize)
 }
 
 func createTestVideo(outputPath string, duration time.Duration, resolution string, cfg *config.Config) {
-	fmt.Println("--- Create Test Video ---")
+	slog.Info("Starting Create Test Video")
 
 	// Validate required output path parameter
 	if outputPath == "" {
-		fmt.Printf("Error: Output path is required for create-video test\n")
-		fmt.Printf("Usage: -input \"./video_source/sample.mp4\"\n")
+		slog.Error("Output path is required for create-video test", "usage", "-input \"./video_source/sample.mp4\"")
 		os.Exit(1)
 	}
 
 	// Parse resolution
 	parts := strings.Split(resolution, "x")
 	if len(parts) != 2 {
-		fmt.Printf("Invalid resolution format: %s (use WIDTHxHEIGHT)\n", resolution)
+		slog.Error("Invalid resolution format", "resolution", resolution, "expected_format", "WIDTHxHEIGHT")
 		os.Exit(1)
 	}
 
 	// Ensure output directory exists
 	if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
-		fmt.Printf("Failed to create output directory: %v\n", err)
+		slog.Error("Failed to create output directory", "error", err)
 		os.Exit(1)
 	}
 
-	fmt.Printf("Creating %s video at %s for %v\n", resolution, outputPath, duration)
+	slog.Info("Creating test video", "resolution", resolution, "output", outputPath, "duration", duration)
 
 	// Create test pattern video using FFmpeg
 	durationStr := fmt.Sprintf("%.1f", duration.Seconds())
@@ -560,17 +543,15 @@ func createTestVideo(outputPath string, duration time.Duration, resolution strin
 
 	start := time.Now()
 	if err := cmd.Run(); err != nil {
-		fmt.Printf("Video creation failed: %v\n", err)
+		slog.Error("Video creation failed", "error", err)
 		os.Exit(1)
 	}
 
 	createDuration := time.Since(start)
 	if stat, err := os.Stat(outputPath); err == nil {
-		fmt.Printf("✅ Test video created successfully!\n")
-		fmt.Printf("Creation time: %v\n", createDuration)
-		fmt.Printf("File size: %d bytes\n", stat.Size())
+		slog.Info("Test video created successfully", "creation_time", createDuration, "file_size_bytes", stat.Size())
 	} else {
-		fmt.Printf("❌ Test video not created\n")
+		slog.Error("Test video not created", "expected_file", outputPath)
 		os.Exit(1)
 	}
 }
@@ -582,10 +563,10 @@ func checkJobResults(job *models.ConversionJob, cfg *config.Config) {
 		outputPath = cfg.Storage.Local.Path
 	}
 	outputsDir := filepath.Join(outputPath, job.JobID)
-	fmt.Printf("\nChecking outputs directory: %s\n", outputsDir)
+	slog.Info("Checking outputs directory", "outputs_dir", outputsDir)
 
 	if _, err := os.Stat(outputsDir); err == nil {
-		fmt.Println("✅ Outputs directory exists! Listing files:")
+		slog.Info("Outputs directory exists, listing files")
 		totalFiles := 0
 		totalSize := int64(0)
 
@@ -595,7 +576,7 @@ func checkJobResults(job *models.ConversionJob, cfg *config.Config) {
 			}
 			if !info.IsDir() {
 				relPath, _ := filepath.Rel(outputsDir, path)
-				fmt.Printf("  %s (%d bytes)\n", relPath, info.Size())
+				slog.Debug("Found output file", "path", relPath, "size_bytes", info.Size())
 				totalFiles++
 				totalSize += info.Size()
 			}
@@ -603,18 +584,17 @@ func checkJobResults(job *models.ConversionJob, cfg *config.Config) {
 		})
 
 		if err != nil {
-			fmt.Printf("Error listing files: %v\n", err)
+			slog.Error("Error listing files", "error", err)
 		} else {
-			fmt.Printf("Total: %d files, %d bytes\n", totalFiles, totalSize)
+			slog.Info("Job results summary", "total_files", totalFiles, "total_size_bytes", totalSize)
 		}
 	} else {
-		fmt.Printf("❌ Outputs directory does not exist: %v\n", err)
+		slog.Warn("Outputs directory does not exist", "error", err)
 
 		// Check temp directory
 		tempDir := filepath.Join(cfg.Processing.TempDir, job.JobID)
 		if _, err := os.Stat(tempDir); err == nil {
-			fmt.Printf("💡 Temp directory exists: %s\n", tempDir)
-			fmt.Println("Files may still be in temp directory. Use 'upload' test to copy them.")
+			slog.Info("Temp directory exists", "temp_dir", tempDir, "hint", "Files may still be in temp directory. Use 'upload' test to copy them.")
 		}
 	}
 }
