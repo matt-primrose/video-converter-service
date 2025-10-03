@@ -4,6 +4,7 @@ services:
     ports:
       - "8080:8080" # Main API port
       - "8081:8081" # Health check port
+      - "8082:8082" # Event webhook port (Event Grid, etc.)
       - "9090:9090" # Metrics port
     environment:
       # Server configuration
@@ -11,9 +12,19 @@ services:
       - SERVER_HOST=0.0.0.0
       - SERVER_HEALTH_CHECK_PORT=8081
 
+      # Event Sources configuration
+      - EVENT_SOURCES_AZURE_EVENTGRID_ENDPOINT=https://test.eventgrid.azure.net/api/events
+      - EVENT_SOURCES_AZURE_EVENTGRID_KEY=test-key
+      - EVENT_SOURCES_WEBSOCKET_ENDPOINT=ws://localhost:8080/events
+      - EVENT_SOURCES_WEBSOCKET_TOKEN=test-token
+
       # Storage configuration (valid types: local, azure-blob, s3)
       - STORAGE_TYPE=local
       - STORAGE_LOCAL_PATH=/app/video_outputs # Only used when STORAGE_TYPE=local
+      - STORAGE_AZURE_BLOB_ACCOUNT= # Required when STORAGE_TYPE=azure-blob
+      - STORAGE_AZURE_BLOB_CONTAINER=video-outputs # Required when STORAGE_TYPE=azure-blob
+      - STORAGE_S3_BUCKET= # Required when STORAGE_TYPE=s3
+      - STORAGE_S3_REGION=us-east-1 # Required when STORAGE_TYPE=s3
 
       # Processing configuration
       - PROCESSING_MAX_CONCURRENT_JOBS=2

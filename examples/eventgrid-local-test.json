@@ -1,0 +1,22 @@
+[
+    {
+        "id": "local-test-event-001",
+        "topic": "/subscriptions/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/resourceGroups/test-resource-group/providers/Microsoft.Storage/storageAccounts/testaccount",
+        "subject": "/blobServices/default/containers/video-uploads/blobs/your-video.mp4",
+        "eventType": "Microsoft.Storage.BlobCreated",
+        "eventTime": "2025-10-03T12:00:00.0000000Z",
+        "data": {
+            "api": "PutBlob",
+            "clientRequestId": "local-test-client-request",
+            "requestId": "local-test-request-001",
+            "eTag": "0x8D4BCC2E4835CD0",
+            "contentType": "video/mp4",
+            "contentLength": 12384317,
+            "blobType": "BlockBlob",
+            "url": "/app/video_source/your-video.mp4",
+            "sequencer": "00000000000004420000000000028963"
+        },
+        "dataVersion": "1.0",
+        "metadataVersion": "1"
+    }
+]

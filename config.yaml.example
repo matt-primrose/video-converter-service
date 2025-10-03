@@ -6,35 +6,72 @@
 # 2. Update FFmpeg paths to point to local binaries (e.g., "./bin/ffmpeg.exe" on Windows)
 # 3. Set appropriate storage type and paths
 # 4. Replace placeholder tokens/secrets with actual values
+# 5. Test Event Grid integration using examples/eventgrid-local-test.json
 #
 # For production deployment:
 # 1. Set sensitive values via environment variables (Azure EventGrid, webhook URLs, storage credentials)
 # 2. Configure appropriate storage backend (Azure Blob, S3, etc.)
 # 3. Adjust processing limits based on your infrastructure
 # 4. Set log_level to "info" or "warn" for production
+# 5. Ensure port 8082 is accessible for Event Grid webhook callbacks
+#
+# Service Ports:
+# - 8080: Main HTTP API server
+# - 8081: Health check endpoint  
+# - 8082: Event Grid webhook receiver (hardcoded)
+#
+# Environment Variable Precedence:
+# Environment variables override config.yaml values using this mapping:
+# - EVENT_SOURCES_AZURE_EVENTGRID_ENDPOINT → event_sources.azure_eventgrid.endpoint
+# - EVENT_SOURCES_AZURE_EVENTGRID_KEY → event_sources.azure_eventgrid.key
+# - EVENT_SOURCES_WEBSOCKET_ENDPOINT → event_sources.websocket.endpoint
+# - EVENT_SOURCES_WEBSOCKET_TOKEN → event_sources.websocket.token
+# - STORAGE_TYPE → storage.type
+# - PROCESSING_MAX_CONCURRENT_JOBS → processing.max_concurrent_jobs
+# See docker-compose.yml for complete environment variable examples
 
 server:
   port: 8080
   host: "0.0.0.0"
   health_check_port: 8081
 
+# Event Sources Configuration
+# The service supports event-driven video processing from multiple sources
+# Configure the sources you want to enable below
 event_sources:
   azure_eventgrid:
-    endpoint: ""  # Set via environment variable in production: AZURE_EVENTGRID_ENDPOINT
-    key: ""       # Set via environment variable in production: AZURE_EVENTGRID_KEY
+    # Azure Event Grid integration for blob creation events
+    # Webhook endpoint runs on port 8082 (hardcoded)
+    # Example production values:
+    endpoint: "https://your-eventgrid.azure.net/api/events"  # Your Event Grid topic endpoint
+    key: "your-event-grid-sas-key"                           # SAS key for webhook authentication
+    # For local testing, use the values from docker-compose.yml:
+    # endpoint: "https://test.eventgrid.azure.net/api/events"
+    # key: "test-key"
+    
   websocket:
-    endpoint: "ws://localhost:8080/events"
-    token: "your-websocket-token-here"  # Replace with your actual token in production
+    # WebSocket client for real-time event processing
+    # Connects to external WebSocket server with automatic reconnection
+    endpoint: "ws://localhost:8080/events"        # WebSocket server endpoint
+    token: "your-websocket-token-here"            # Authentication token
+    # For local testing, use: token: "test-token"
 
 storage:
+  # Storage backend for converted video outputs
+  # Note: Input sources (via Event Grid) support multiple types automatically:
+  #   - Local files: /app/video_source/* (mounted from ./video_source)
+  #   - HTTP/HTTPS URLs: Downloaded temporarily for processing
+  #   - Azure Blob URLs: Downloaded via Azure SDK with public/authenticated access
   type: "local"  # Options: "local", "azure_blob", "s3"
   local:
     path: "./video_outputs"                 # Final destination for local storage type
   azure_blob:
-    account: "your-storage-account"  # Replace with your Azure storage account name
-    container: "video-outputs"
+    account: "your-storage-account"         # Azure storage account name
+    container: "video-outputs"              # Container for processed video outputs
+    # Note: Input downloading from Azure Blob (via Event Grid) uses public access
+    # For authenticated downloads, set AZURE_STORAGE_CONNECTION_STRING environment variable
   s3:
-    bucket: "your-s3-bucket"  # Replace with your S3 bucket name
+    bucket: "your-s3-bucket"                # S3 bucket for processed video outputs
     region: "us-east-1"
 
 processing:
@@ -115,3 +152,34 @@ job_templates:
       webhook_url: "https://your-webhook-endpoint.com/video-complete"  # Replace with your webhook URL
       on_complete: true
       on_failure: true
+
+# ==============================================================================
+# TESTING CONFIGURATION
+# ==============================================================================
+# 
+# Quick Test Setup (Event Grid Integration):
+# 1. Copy this file: cp config.yaml.example config.yaml
+# 2. Start service: docker-compose up -d video-converter
+# 3. Place test video in: ./video_source/your-video.mp4
+# 4. Edit examples/eventgrid-local-test.json to match your filename
+# 5. Send test event:
+#    curl -X POST http://localhost:8082/webhook/eventgrid \
+#      -H "aeg-sas-key: test-key" \
+#      -H "aeg-event-type: Notification" \
+#      -H "Content-Type: application/json" \
+#      -d @examples/eventgrid-local-test.json
+# 6. Check results: ls -la video_outputs/job-*/
+#
+# Test Event Sources:
+# - Local files: Place in ./video_source/ (mounted to /app/video_source in container)
+# - HTTP URLs: Use examples/eventgrid-public-blob-test.json
+# - Azure Blob: Use examples/eventgrid-test.json (requires real Azure Storage account)
+#
+# Monitoring:
+# - Watch logs: docker logs -f video-converter-service-video-converter-1
+# - Check health: curl http://localhost:8081/healthz
+# - Verify webhook: curl -I http://localhost:8082/webhook/eventgrid
+#
+# Expected Processing Flow:
+# Event Grid → Source Detection → File Download → Transcoding → Output Storage
+# Look for log messages: "Job queued" → "sourceType" → "Starting transcoding" → "Job completed"

@@ -1,0 +1,15 @@
+[
+    {
+        "id": "2d1781af-3a4c-4d7c-bd0c-e34b19da4e66",
+        "topic": "/subscriptions/xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/resourceGroups/myResourceGroup/providers/Microsoft.EventGrid/topics/video-upload-events",
+        "subject": "",
+        "data": {
+            "validationCode": "512d38b6-c7b8-40c8-89fe-f46f9e9622b6",
+            "validationUrl": "https://rp-eastus2.eventgrid.azure.net:553/eventsubscriptions/video-converter/validate?id=B2E34264-7D71-453A-B5FB-B62D0FDC4A49&t=2025-10-03T12:00:00.0000000Z&apiVersion=2018-05-01-preview&token=1A1A1A1A"
+        },
+        "eventType": "Microsoft.EventGrid.SubscriptionValidationEvent",
+        "eventTime": "2025-10-03T12:00:00.0000000Z",
+        "metadataVersion": "1",
+        "dataVersion": "2"
+    }
+]
