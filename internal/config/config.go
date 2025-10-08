@@ -223,6 +223,9 @@ func loadFromEnv(cfg *Config) {
 	if val := os.Getenv("STORAGE_AZURE_BLOB_CONTAINER"); val != "" {
 		cfg.Storage.AzureBlob.Container = val
 	}
+	if val := os.Getenv("STORAGE_AZURE_BLOB_ACCOUNT_KEY"); val != "" {
+		cfg.Storage.AzureBlob.AccountKey = val
+	}
 	if val := os.Getenv("STORAGE_S3_BUCKET"); val != "" {
 		cfg.Storage.S3.Bucket = val
 	}
