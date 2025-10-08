@@ -58,8 +58,10 @@ type DockerStorage struct {
 }
 
 type AzureBlobStorage struct {
-	Account   string `yaml:"account" json:"account"`
-	Container string `yaml:"container" json:"container"`
+	Account        string `yaml:"account" json:"account"`
+	Container      string `yaml:"container" json:"container"`
+	AccountKey     string `yaml:"account_key" json:"account_key"`
+	EndpointSuffix string `yaml:"endpoint_suffix" json:"endpoint_suffix"`
 }
 
 type S3Storage struct {

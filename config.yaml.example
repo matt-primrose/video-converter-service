@@ -68,6 +68,8 @@ storage:
   azure_blob:
     account: "your-storage-account"         # Azure storage account name
     container: "video-outputs"              # Container for processed video outputs
+    account_key: ""
+    endpoint_suffix: "core.windows.net"     # Default Azure endpoint suffix
     # Note: Input downloading from Azure Blob (via Event Grid) uses public access
     # For authenticated downloads, set AZURE_STORAGE_CONNECTION_STRING environment variable
   s3:

@@ -10,18 +10,20 @@ import (
 	"time"
 
 	"github.com/matt-primrose/video-converter-service/internal/config"
+	"github.com/matt-primrose/video-converter-service/internal/storage"
 	"github.com/matt-primrose/video-converter-service/internal/transcoder"
 	"github.com/matt-primrose/video-converter-service/pkg/models"
 )
 
 // Worker manages the conversion job processing
 type Worker struct {
-	config     *config.Config
-	transcoder *transcoder.Transcoder
-	jobQueue   chan *models.ConversionJob
-	wg         sync.WaitGroup
-	ctx        context.Context
-	cancel     context.CancelFunc
+	config        *config.Config
+	transcoder    *transcoder.Transcoder
+	outputStorage storage.Storage
+	jobQueue      chan *models.ConversionJob
+	wg            sync.WaitGroup
+	ctx           context.Context
+	cancel        context.CancelFunc
 }
 
 // New creates a new worker instance
@@ -35,12 +37,20 @@ func New(cfg *config.Config) (*Worker, error) {
 		return nil, fmt.Errorf("failed to initialize transcoder: %w", err)
 	}
 
+	// Initialize output storage
+	outputStorage, err := storage.NewStorage(cfg)
+	if err != nil {
+		cancel()
+		return nil, fmt.Errorf("failed to initialize storage: %w", err)
+	}
+
 	return &Worker{
-		config:     cfg,
-		transcoder: tc,
-		jobQueue:   make(chan *models.ConversionJob, cfg.Processing.MaxConcurrentJobs*2), // Buffer for queuing
-		ctx:        ctx,
-		cancel:     cancel,
+		config:        cfg,
+		transcoder:    tc,
+		outputStorage: outputStorage,
+		jobQueue:      make(chan *models.ConversionJob, cfg.Processing.MaxConcurrentJobs*2), // Buffer for queuing
+		ctx:           ctx,
+		cancel:        cancel,
 	}, nil
 }
 

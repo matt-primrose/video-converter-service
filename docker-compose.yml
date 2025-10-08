@@ -23,6 +23,7 @@ services:
       - STORAGE_LOCAL_PATH=/app/video_outputs # Only used when STORAGE_TYPE=local
       - STORAGE_AZURE_BLOB_ACCOUNT= # Required when STORAGE_TYPE=azure-blob
       - STORAGE_AZURE_BLOB_CONTAINER=video-outputs # Required when STORAGE_TYPE=azure-blob
+      - STORAGE_AZURE_BLOB_ACCOUNT_KEY= # Required when STORAGE_TYPE=azure-blob
       - STORAGE_S3_BUCKET= # Required when STORAGE_TYPE=s3
       - STORAGE_S3_REGION=us-east-1 # Required when STORAGE_TYPE=s3
 
